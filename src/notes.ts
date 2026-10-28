@@ -80,6 +80,9 @@ $('newlist').onclick = async () => {
   $('status').textContent = `Created "${name}.yaml". Rename the file in your Notes folder to rename the list.`;
 };
 
+listen<{ project: string }>('lists-changed', async ({ payload }) => {
+  if (payload.project === current && document.activeElement !== editor) { editor.value = await invoke<string>('read_project', { name: current }); check(); pick(); }
+});
 listen<{ task: string; project: string; totalMs: number }>('timer-state', ({ payload }) => { running = payload.task ? payload : null; });
 listen<{ task: string; project: string }>('timer-up', ({ payload }) => {
   if (payload.project === current) $('status').textContent = `Time's up for "${payload.task}". Mark it done, or start it again.`;

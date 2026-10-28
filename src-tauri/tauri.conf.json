@@ -28,13 +28,27 @@
       {
         "label": "notes",
         "url": "notes.html",
-        "title": "Maze Cat · Lists",
+        "title": "Maze Cat \u00b7 Lists",
         "width": 520,
         "height": 640,
         "minWidth": 380,
         "minHeight": 420,
         "visible": false,
         "center": true
+      },
+      {
+        "label": "picker",
+        "url": "picker.html",
+        "title": "Maze Cat \u00b7 Pick a task",
+        "width": 320,
+        "height": 380,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
       }
     ],
     "security": {
@@ -43,11 +57,23 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "Brian Thorne",
     "category": "Productivity",
     "shortDescription": "Your task list and a timer that floats over the taskbar.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "windows": { "nsis": { "installMode": "currentUser" } }
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }

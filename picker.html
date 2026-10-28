@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Maze Cat · Pick a task</title>
+<link rel="stylesheet" href="/src/style.css">
+<style>
+  html, body { background: transparent; overflow: hidden; }
+  .pop { position: absolute; inset: 0; display: flex; flex-direction: column; background: rgba(21, 24, 30, .97);
+         border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .projects { display: flex; gap: 4px; padding: 8px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .projects button { flex: none; border: 1px solid transparent; background: transparent; border-radius: 999px; padding: 4px 10px;
+                     font-size: 12px; color: var(--muted); }
+  .projects button[aria-pressed="true"] { color: var(--fg); border-color: var(--line); background: var(--panel); }
+  .list { flex: 1; overflow-y: auto; padding: 4px 6px 8px; }
+  h2 { margin: 10px 6px 4px; font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .item { display: flex; align-items: center; gap: 6px; border-radius: 8px; }
+  .item:hover, .item:focus-within { background: var(--panel); }
+  .item.now .pick { color: var(--accent); }
+  .pick { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; padding: 7px 8px; font-size: 13px; line-height: 1.3; }
+  .pick .mins { color: var(--muted); font: 11px var(--mono); margin-left: 6px; }
+  .done { flex: none; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); opacity: 0; }
+  .item:hover .done, .item:focus-within .done { opacity: 1; }
+  .done:hover { color: var(--done); background: var(--bg); }
+  .empty, .msg { padding: 14px 10px; color: var(--muted); font-size: 13px; }
+  .msg.bad { color: var(--warn); }
+  .foot { padding: 6px 10px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="pop">
+  <nav class="projects" id="projects" aria-label="Lists"></nav>
+  <div class="list" id="list" role="list"></div>
+  <div class="foot">Double-click to start · ✓ done · Esc to close</div>
+</div>
+<script type="module" src="/src/picker.ts"></script>
+</body>
+</html>

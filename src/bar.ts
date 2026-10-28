@@ -20,7 +20,7 @@ function render() {
   const task = $('task'), clock = $('clock');
   const up = !!state.task && state.totalMs > 0 && left === 0;
   task.textContent = state.task ? (up ? `Time's up · ${state.task}` : state.task) : 'Pick a task';
-  task.title = state.task ? `${state.project} · ${state.task}` : '';
+  task.title = state.task ? `${state.project} · ${state.task}\nDouble-click to pick another task` : 'Double-click to pick a task';
   task.classList.toggle('idle', !state.task);
   clock.textContent = state.task ? format(left) : '--:--';
   clock.className = 'clock' + (up ? ' up' : state.endsAt !== null ? ' running' : state.task ? ' paused' : '');
@@ -83,6 +83,18 @@ async function place() {
 }
 
 $('cat').onclick = toggleNotes;
+
+// Double-click the bar to pick a task; press and drag it to move it.
+$('bar').addEventListener('dblclick', (e) => {
+  if ((e.target as HTMLElement).closest('button')) return;
+  if (anchor) emit('picker-open', anchor);
+});
+let press: { x: number; y: number } | null = null;
+$('bar').addEventListener('mousedown', (e) => { if (e.button === 0 && !(e.target as HTMLElement).closest('button')) press = { x: e.screenX, y: e.screenY }; });
+window.addEventListener('mouseup', () => (press = null));
+window.addEventListener('mousemove', (e) => {
+  if (press && Math.hypot(e.screenX - press.x, e.screenY - press.y) > 4) { press = null; win.startDragging().catch(() => {}); }
+});
 $('clock').onclick = () => set(toggle(state));
 win.onMoved(async ({ payload }) => {
   if (fitting) return;
