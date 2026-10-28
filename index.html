@@ -5,27 +5,33 @@
 <title>Maze Cat</title>
 <link rel="stylesheet" href="/src/style.css">
 <style>
-  body { background: transparent; overflow: hidden; }
-  .bar { height: 100vh; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 4px;
-         background: rgba(21, 24, 30, .92); border: 1px solid var(--line); border-radius: 10px; }
-  .catbtn { flex: none; width: 30px; height: 30px; padding: 3px; border: 0; border-radius: 8px; background: transparent; }
+  /* Compact and see-through: the window shrinks to fit its content, so taskbar icons beside it stay clickable. */
+  html, body { background: transparent; overflow: hidden; }
+  body { display: flex; justify-content: flex-end; align-items: center; height: 100vh; }
+  .bar { display: inline-flex; align-items: center; gap: 6px; height: 100%; padding: 0 4px 0 8px; border-radius: 8px; }
+  .bar:hover { background: rgba(255, 255, 255, .06); }
+  .sep { flex: none; width: 1px; align-self: stretch; margin: 8px 2px 8px 0; background: rgba(255, 255, 255, .18); }
+  .task { max-width: 210px; font-size: 12.5px; line-height: 1.2; color: var(--fg); cursor: grab; user-select: none;
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: right; }
+  .task.idle { color: var(--muted); }
+  .catbtn { flex: none; width: 26px; height: 26px; padding: 2px; border: 0; border-radius: 7px; background: transparent; }
   .catbtn:hover { background: var(--panel); }
   .catbtn:focus:not(:focus-visible) { outline: none; }
   .cat { width: 100%; height: 100%; display: block; }
   .cat.awake { --cat: var(--accent); }
-  .task { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: grab; user-select: none; }
-  .task.idle { color: var(--muted); }
-  .clock { flex: none; min-width: 64px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel);
-           font: 600 14px/1 var(--mono); font-variant-numeric: tabular-nums; text-align: center; }
-  .clock.running { color: var(--accent); border-color: var(--accent); }
-  .clock.paused { color: var(--muted); }
-  .clock.up { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  /* Vertical, read bottom to top, like the first Maze Cat: about 18 px wide. */
+  .clock { flex: none; align-self: center; padding: 2px 1px; border: 0; border-radius: 6px; background: transparent; color: var(--muted);
+           font: 600 11px/1 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; writing-mode: vertical-rl; transform: rotate(180deg); }
+  .clock:hover { background: var(--panel); }
+  .clock.running { color: var(--accent); }
+  .clock.up { color: var(--bg); background: var(--accent); }
 </style>
 </head>
 <body>
-<div class="bar">
+<div class="bar" id="bar">
+  <span class="sep" aria-hidden="true"></span>
+  <div class="task idle" id="task" data-tauri-drag-region>Pick a task</div>
   <button class="catbtn" id="cat" type="button" aria-label="Show or hide your lists"></button>
-  <div class="task idle" id="task" data-tauri-drag-region>Pick a task in your lists</div>
   <button class="clock" id="clock" type="button" aria-label="Pause or resume the timer">--:--</button>
 </div>
 <script type="module" src="/src/bar.ts"></script>

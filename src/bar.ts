@@ -1,5 +1,5 @@
 // The bar: current task and countdown, floating just above the taskbar.
-import { getCurrentWindow, PhysicalPosition, primaryMonitor } from '@tauri-apps/api/window';
+import { getCurrentWindow, PhysicalPosition, LogicalSize, primaryMonitor } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emit } from '@tauri-apps/api/event';
 import { catSvg } from './cat';
@@ -19,7 +19,7 @@ function render() {
   const left = remaining(state);
   const task = $('task'), clock = $('clock');
   const up = !!state.task && state.totalMs > 0 && left === 0;
-  task.textContent = state.task ? (up ? `Time's up · ${state.task}` : state.task) : 'Pick a task in your lists';
+  task.textContent = state.task ? (up ? `Time's up · ${state.task}` : state.task) : 'Pick a task';
   task.title = state.task ? `${state.project} · ${state.task}` : '';
   task.classList.toggle('idle', !state.task);
   clock.textContent = state.task ? format(left) : '--:--';
@@ -27,6 +27,7 @@ function render() {
   $('cat').innerHTML = catSvg(up ? 'awake' : 'calm');
   if (up && !rang) { rang = true; chime(); emit('timer-up', { task: state.task, project: state.project }); }
   if (!up) rang = false;
+  fit();
 }
 
 function set(s: TimerState) { state = s; store.set('timer', s); render(); emit('timer-state', s); }
@@ -51,21 +52,44 @@ async function toggleNotes() {
   else { await notes.show(); await notes.unminimize(); await notes.setFocus(); }
 }
 
+// The window hugs its content and keeps its right edge where you left it.
+const HEIGHT = 40;
+let anchor: { right: number; y: number } | null = store.get('barAnchor', null);
+let lastW = 0, fitting = false;
+
+async function fit() {
+  const w = Math.ceil(($('bar') as HTMLElement).getBoundingClientRect().width) + 2;
+  if (!anchor || fitting || Math.abs(w - lastW) < 2) return;
+  fitting = true; lastW = w;
+  try {
+    const scale = await win.scaleFactor();
+    await win.setSize(new LogicalSize(w, HEIGHT));
+    await win.setPosition(new PhysicalPosition(anchor.right - Math.round(w * scale), anchor.y));
+  } finally { fitting = false; }
+}
+
 async function place() {
-  const saved = store.get<{ x: number; y: number } | null>('barPos', null);
-  if (saved) return win.setPosition(new PhysicalPosition(saved.x, saved.y));
-  const m = await primaryMonitor();
-  if (!m) return;
-  const size = await win.outerSize();
-  // Bottom right, over the taskbar, leaving room for the clock and tray icons.
-  const x = m.position.x + m.size.width - size.width - Math.round(260 * m.scaleFactor);
-  const y = m.position.y + m.size.height - size.height - Math.round(4 * m.scaleFactor);
-  await win.setPosition(new PhysicalPosition(x, y));
+  if (!anchor) {
+    const m = await primaryMonitor();
+    if (!m) return;
+    // Bottom right, over the taskbar, leaving room for the clock and tray icons.
+    anchor = {
+      right: m.position.x + m.size.width - Math.round(260 * m.scaleFactor),
+      y: m.position.y + m.size.height - Math.round((HEIGHT + 4) * m.scaleFactor),
+    };
+    store.set('barAnchor', anchor);
+  }
+  lastW = 0; await fit();
 }
 
 $('cat').onclick = toggleNotes;
 $('clock').onclick = () => set(toggle(state));
-win.onMoved(({ payload }) => store.set('barPos', { x: payload.x, y: payload.y }));
+win.onMoved(async ({ payload }) => {
+  if (fitting) return;
+  const size = await win.outerSize();
+  anchor = { right: payload.x + size.width, y: payload.y };
+  store.set('barAnchor', anchor);
+});
 
 listen<{ task: string; project: string; minutes: number }>('start-task', ({ payload }) => set(start(payload.task, payload.project, payload.minutes)));
 listen<{ action: 'stop' | 'toggle' }>('timer-control', ({ payload }) => set(payload.action === 'stop' ? idle() : toggle(state)));

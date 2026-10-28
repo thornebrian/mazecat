@@ -15,7 +15,7 @@
         "label": "bar",
         "url": "index.html",
         "title": "Maze Cat",
-        "width": 420,
+        "width": 300,
         "height": 40,
         "resizable": false,
         "decorations": false,
