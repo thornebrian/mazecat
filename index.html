@@ -8,7 +8,7 @@
   /* Compact and see-through: the window shrinks to fit its content, so taskbar icons beside it stay clickable. */
   html, body { background: transparent; overflow: hidden; }
   body { display: flex; justify-content: flex-end; align-items: center; height: 100vh; }
-  .bar { display: inline-flex; align-items: center; gap: 6px; height: 100%; padding: 0 4px 0 8px; border-radius: 8px; }
+  .bar { display: inline-flex; flex: none; align-items: center; gap: 6px; height: 100%; padding: 0 4px 0 8px; border-radius: 8px; }
   .bar:hover { background: rgba(255, 255, 255, .06); }
   .sep { flex: none; width: 1px; align-self: stretch; margin: 8px 2px 8px 0; background: rgba(255, 255, 255, .18); }
   .task { max-width: 210px; font-size: 12.5px; line-height: 1.2; color: var(--fg); cursor: grab; user-select: none;
@@ -25,6 +25,12 @@
   .clock:hover { background: var(--panel); }
   .clock.running { color: var(--accent); }
   .clock.up { color: var(--bg); background: var(--accent); }
+  /* Timer presets: replace the bar's content while open, like the first Maze Cat. */
+  .presets { display: inline-flex; flex: none; width: max-content; align-items: center; gap: 4px; height: 100%; padding: 0 4px; }
+  .presets button { white-space: nowrap; min-width: 44px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); font-size: 12.5px; }
+  .presets button:hover { border-color: var(--muted); }
+  .presets button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .presets .x { min-width: 28px; padding: 0; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -32,7 +38,15 @@
   <span class="sep" aria-hidden="true"></span>
   <div class="task idle" id="task" title="Double-click to pick a task">Pick a task</div>
   <button class="catbtn" id="cat" type="button" aria-label="Show or hide your lists"></button>
-  <button class="clock" id="clock" type="button" aria-label="Pause or resume the timer">--:--</button>
+  <button class="clock" id="clock" type="button" aria-label="Timer length" title="Timer length">--:--</button>
+</div>
+<div class="presets" id="presets" hidden>
+  <button type="button" data-min="60">1 h</button>
+  <button type="button" data-min="25">25 min</button>
+  <button type="button" data-min="5">5 min</button>
+  <button type="button" data-min="1">1 min</button>
+  <button type="button" id="pause">Pause</button>
+  <button type="button" class="x" id="closepresets" aria-label="Close">✕</button>
 </div>
 <script type="module" src="/src/bar.ts"></script>
 </body>

@@ -34,6 +34,11 @@ test('difficulty tags set the time', () => {
   assert.equal(tagMinutes('Ship it (hard)'), 60);
   assert.equal(tagMinutes('Ship it (Easy) '), 10);
   assert.equal(tagMinutes('Ship it'), null);
+  assert.equal(tagMinutes('Review the brief (15m)'), 15);
+  assert.equal(tagMinutes('Review the brief (mid) (40 min)'), 40);
+  assert.equal(tagMinutes('Deep work (hard, 1h30)'), 90);
+  assert.equal(tagMinutes('Deep work (1.5h)'), 90);
+  assert.equal(tagMinutes('Call (Ana) about rent'), null);
 });
 
 test('finds the task and section under the cursor', () => {

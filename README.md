@@ -10,8 +10,10 @@ It began as a personal tool that made a real difference to its author, and it is
 
 - **The bar** sits just above the taskbar and stays on top: the cat, the current task, and the time left. Click the time to pause or resume; drag the task text to move the bar; click the cat to show or hide your lists.
 - **Your lists** are plain YAML files, one project per file, so you can also edit them in any text editor or keep them in a synced folder.
-- **Difficulty tags set the timer**: `(easy)` 10 min, `(mid)` 25 min, `(hard)` 1 hour. Or pick 1 h, 25, 5 or 1 min yourself.
-- **Mark done** moves the task to `DONE` and stops the timer. Starting a task moves it to `WIP`.
+- **Tags set each task's timer**: a time like `(15m)`, `(40 min)` or `(1h30)`, or a difficulty: `(easy)` 10 min, `(mid)` 25 min, `(hard)` 1 hour. Tasks without a tag use your default.
+- **Click the time** on the bar to change the default (1 h, 25, 5 or 1 min) or to pause.
+- **Double-click the bar** to pick a task; double-click a task to start it. When time's up, *Need more time?* Yes runs it again; No marks it done and starts the next task.
+- **✓** in the picker marks a task done. Starting a task moves it to `WIP`.
 
 ## Your lists
 

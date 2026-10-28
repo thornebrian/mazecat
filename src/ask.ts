@@ -33,7 +33,7 @@ $('no').onclick = async () => {
   const next = firstTodo(project, text);
   if (next) {
     text = moveTask(text, next, 'WIP');
-    await emit('start-task', { task: next, project, minutes: tagMinutes(next) ?? 25 });
+    await emit('start-task', { task: next, project, minutes: tagMinutes(next) });
   } else {
     await emit('timer-control', { action: 'stop' });
   }

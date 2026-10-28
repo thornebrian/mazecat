@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { emit, listen } from '@tauri-apps/api/event';
 import { catSvg } from './cat';
 import { parseProject, taskAtLine, tagMinutes, moveTask, newProject, Section } from './lists';
+import { defaultMinutes } from './prefs';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const editor = $<HTMLTextAreaElement>('editor'), select = $<HTMLSelectElement>('project');
@@ -43,12 +44,12 @@ function pick() {
   picked = taskAtLine(editor.value, caretLine());
   $('picked').textContent = picked ? picked.task : 'Click a task line above';
   const mins = picked ? tagMinutes(picked.task) : null;
-  $('go').textContent = mins ? `Start · ${mins} min` : 'Start · 25 min';
+  $('go').textContent = `Start · ${mins ?? defaultMinutes()} min`;
 }
 
 async function startTask(minutes?: number) {
   if (!picked) { $('status').textContent = 'Put the cursor on a task line (one that starts with "- ") first.'; return; }
-  const mins = minutes ?? tagMinutes(picked.task) ?? 25;
+  const mins = minutes ?? tagMinutes(picked.task);
   if (picked.section !== 'WIP') { editor.value = moveTask(editor.value, picked.task, 'WIP'); save(); check(); }
   await emit('start-task', { task: picked.task, project: current, minutes: mins });
 }

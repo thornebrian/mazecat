@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, PhysicalPosition, LogicalSize } from '@tauri-apps/api/window';
 import { emit, listen } from '@tauri-apps/api/event';
 import { parseProject, moveTask, tagMinutes, Section } from './lists';
+import { defaultMinutes } from './prefs';
 
 const win = getCurrentWindow();
 const $ = (id: string) => document.getElementById(id)!;
@@ -54,7 +55,7 @@ function row(task: string, text: string) {
   if (running.task === task && running.project === project) el.classList.add('now');
   const pick = document.createElement('button'); pick.type = 'button'; pick.className = 'pick';
   pick.textContent = task;
-  const m = tagMinutes(task); const mins = document.createElement('span'); mins.className = 'mins'; mins.textContent = `${m ?? 25}m`; pick.appendChild(mins);
+  const m = tagMinutes(task); const mins = document.createElement('span'); mins.className = 'mins'; mins.textContent = `${m ?? defaultMinutes()}m`; pick.appendChild(mins);
   pick.ondblclick = () => start(task, text);
   pick.onkeydown = (e) => { if (e.key === 'Enter') start(task, text); };
   const done = document.createElement('button'); done.type = 'button'; done.className = 'done'; done.textContent = '✓';
@@ -66,7 +67,7 @@ function row(task: string, text: string) {
 
 async function start(task: string, text: string) {
   await win.hide();
-  await emit('start-task', { task, project, minutes: tagMinutes(task) ?? 25 });
+  await emit('start-task', { task, project, minutes: tagMinutes(task) });
   const moved = moveTask(text, task, 'WIP');
   if (moved !== text) await invoke('write_project', { name: project, text: moved });
   await emit('lists-changed', { project });

@@ -52,11 +52,22 @@ function asText(v: unknown): string {
   return String(v).trim();
 }
 
-/** Minutes suggested by a difficulty tag at the end of a task: (easy) 10, (mid) 25, (hard) 60. */
+/**
+ * Minutes set by a task's tags at the end of the line.
+ * A time tag wins: (15m), (15 min), (1h), (1.5h), (1h30). Otherwise a difficulty tag: (easy) 10, (mid) 25, (hard) 60.
+ */
 export function tagMinutes(task: string): number | null {
-  const m = /\((easy|mid|hard)\)\s*$/i.exec(task);
-  if (!m) return null;
-  return { easy: 10, mid: 25, hard: 60 }[m[1].toLowerCase() as 'easy' | 'mid' | 'hard'];
+  const tags = (/(\s*\([^()]*\))+\s*$/.exec(task)?.[0] ?? '').match(/\(([^()]*)\)/g) ?? [];
+  let level: number | null = null;
+  for (const raw of tags) {
+    for (const part of raw.slice(1, -1).split(/[,;]/).map((x) => x.trim().toLowerCase())) {
+      const t = /^(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?)(?:\s*(\d+)\s*(?:m|min|mins)?)?$|^(\d+)\s*(m|min|mins|minutes?)$/.exec(part);
+      if (t) return t[1] ? Math.round(Number(t[1]) * 60 + Number(t[3] ?? 0)) : Number(t[4]);
+      const d = ({ easy: 10, mid: 25, hard: 60 } as Record<string, number>)[part];
+      if (d && level === null) level = d;
+    }
+  }
+  return level;
 }
 
 /** The task on a given line of the editor, and its section, or null when the line isn't a task. */

@@ -58,7 +58,8 @@ let anchor: { right: number; y: number } | null = store.get('barAnchor', null);
 let lastW = 0, fitting = false;
 
 async function fit() {
-  const w = Math.ceil(($('bar') as HTMLElement).getBoundingClientRect().width) + 2;
+  const el = ($('presets').hidden ? $('bar') : $('presets')) as HTMLElement;
+  const w = Math.ceil(el.getBoundingClientRect().width) + 2;
   if (!anchor || fitting || Math.abs(w - lastW) < 2) return;
   fitting = true; lastW = w;
   try {
@@ -95,7 +96,24 @@ window.addEventListener('mouseup', () => (press = null));
 window.addEventListener('mousemove', (e) => {
   if (press && Math.hypot(e.screenX - press.x, e.screenY - press.y) > 4) { press = null; win.startDragging().catch(() => {}); }
 });
-$('clock').onclick = () => set(toggle(state));
+// Click the time to change the timer length (it becomes the default) or pause; one click picks.
+let defaultMin = store.get('defaultMinutes', 25);
+function showPresets(open: boolean) {
+  $('bar').hidden = open; $('presets').hidden = !open;
+  document.querySelectorAll<HTMLButtonElement>('[data-min]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.min) === defaultMin)));
+  $('pause').textContent = state.endsAt === null && state.task ? 'Resume' : 'Pause';
+  ($('pause') as HTMLButtonElement).disabled = !state.task;
+  lastW = 0; fit();
+}
+$('clock').onclick = () => showPresets(true);
+$('closepresets').onclick = () => showPresets(false);
+$('pause').onclick = () => { set(toggle(state)); showPresets(false); };
+document.querySelectorAll<HTMLButtonElement>('[data-min]').forEach((b) => (b.onclick = () => {
+  defaultMin = Number(b.dataset.min); store.set('defaultMinutes', defaultMin);
+  if (state.task) set(start(state.task, state.project, defaultMin));
+  showPresets(false);
+}));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') showPresets(false); });
 win.onMoved(async ({ payload }) => {
   if (fitting) return;
   const size = await win.outerSize();
@@ -103,7 +121,7 @@ win.onMoved(async ({ payload }) => {
   store.set('barAnchor', anchor);
 });
 
-listen<{ task: string; project: string; minutes: number }>('start-task', ({ payload }) => set(start(payload.task, payload.project, payload.minutes)));
+listen<{ task: string; project: string; minutes: number | null }>('start-task', ({ payload }) => set(start(payload.task, payload.project, payload.minutes ?? defaultMin)));
 listen<{ action: 'stop' | 'toggle' }>('timer-control', ({ payload }) => set(payload.action === 'stop' ? idle() : toggle(state)));
 listen('timer-ask', () => emit('timer-state', state));
 
