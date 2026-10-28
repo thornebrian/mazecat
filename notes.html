@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Maze Cat · Lists</title>
+<link rel="stylesheet" href="/src/style.css">
+<style>
+  body { background: var(--bg); display: flex; flex-direction: column; }
+  header { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header .cat { width: 26px; height: 26px; flex: none; }
+  select, .btn { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 34px; }
+  select { flex: 1; min-width: 0; color: var(--fg); font: inherit; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 12px; gap: 10px; }
+  textarea { flex: 1; min-height: 0; resize: none; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px;
+             background: #111419; color: var(--fg); font: 14px/1.6 var(--mono); tab-size: 2; }
+  .status { min-height: 1.4em; font-size: 13px; color: var(--muted); }
+  .status.bad { color: var(--warn); }
+  .now { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .now .label { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .now .picked { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hint { font-size: 12px; color: var(--muted); }
+  kbd { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <span id="logo"></span>
+  <label for="project" class="hint" style="position:absolute;left:-9999px">List</label>
+  <select id="project" aria-label="List"></select>
+  <button class="btn" id="newlist" type="button">New list</button>
+</header>
+<main>
+  <textarea id="editor" spellcheck="false" aria-label="Task list (YAML)"></textarea>
+  <div class="status" id="status" aria-live="polite"></div>
+  <section class="now" aria-label="Focus">
+    <span class="label">Line under the cursor</span>
+    <span class="picked" id="picked">Click a task line above</span>
+    <div class="row">
+      <button class="btn primary" id="go" type="button">Start</button>
+      <button class="btn" data-min="60" type="button">1 h</button>
+      <button class="btn" data-min="25" type="button">25 min</button>
+      <button class="btn" data-min="5" type="button">5 min</button>
+      <button class="btn" data-min="1" type="button">1 min</button>
+      <button class="btn" id="done" type="button">Mark done</button>
+    </div>
+    <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> starts the task under the cursor. Tags set the time: (easy) 10 min, (mid) 25, (hard) 1 h.</span>
+  </section>
+</main>
+<script type="module" src="/src/notes.ts"></script>
+</body>
+</html>

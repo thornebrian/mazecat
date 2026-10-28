@@ -1,0 +1,22 @@
+/* Calm by default: low contrast backgrounds, no flashing, one warm accent. */
+:root {
+  --bg: #15181E;
+  --panel: #1D212A;
+  --line: #2C323D;
+  --fg: #E9E6DF;
+  --muted: #9AA3AF;
+  --accent: #F2B84B;   /* timer running */
+  --done: #8CCB9B;
+  --warn: #F08A6C;
+  --cat: #E9E6DF;
+  --cat-face: #15181E;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font: 14px/1.4 var(--sans); color: var(--fg); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea:focus-visible { outline: none; border-color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
