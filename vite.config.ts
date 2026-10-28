@@ -8,7 +8,7 @@ export default defineConfig({
   build: {
     target: 'es2021',
     rollupOptions: {
-      input: { bar: resolve(__dirname, 'index.html'), notes: resolve(__dirname, 'notes.html'), picker: resolve(__dirname, 'picker.html') },
+      input: { bar: resolve(__dirname, 'index.html'), notes: resolve(__dirname, 'notes.html'), picker: resolve(__dirname, 'picker.html'), ask: resolve(__dirname, 'ask.html') },
     },
   },
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseProject, taskAtLine, tagMinutes, moveTask } from '../src/lists.ts';
+import { parseProject, taskAtLine, tagMinutes, moveTask, firstTodo } from '../src/lists.ts';
 import { start, toggle, remaining, format } from '../src/timer.ts';
 
 const sample = 'GOVW:\n  WIP:\n  - Call Jennifer 11:00 (mid)\n  TODO:\n  - Fix "512©(3)" – find the swap (easy)\n  - Plan: help desks per project (mid)\n  DONE:\n  - Install Maze Cat (easy)\n';
@@ -59,4 +59,12 @@ test('timer pauses, resumes and restarts when time is up', () => {
   assert.equal(remaining(s, 999_000), 0);
   assert.equal(format(25 * 60_000), '25:00');
   assert.equal(format(3_600_000), '1:00:00');
+});
+
+test('"No, it\'s done" picks the top task under TODO', () => {
+  let t = moveTask(sample, 'Call Jennifer 11:00 (mid)', 'DONE');
+  const next = firstTodo('GOVW', t);
+  assert.equal(next, 'Fix "512©(3)" – find the swap (easy)');
+  t = moveTask(t, next, 'WIP');
+  assert.deepEqual(parseProject('GOVW', t).items.WIP, [next]);
 });

@@ -25,7 +25,7 @@ function render() {
   clock.textContent = state.task ? format(left) : '--:--';
   clock.className = 'clock' + (up ? ' up' : state.endsAt !== null ? ' running' : state.task ? ' paused' : '');
   $('cat').innerHTML = catSvg(up ? 'awake' : 'calm');
-  if (up && !rang) { rang = true; chime(); emit('timer-up', { task: state.task, project: state.project }); }
+  if (up && !rang) { rang = true; chime(); emit('timer-up', { task: state.task, project: state.project }); if (anchor) emit('ask-open', { task: state.task, project: state.project, minutes: state.totalMs / 60_000, anchor }); }
   if (!up) rang = false;
   fit();
 }

@@ -49,6 +49,20 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false
+      },
+      {
+        "label": "ask",
+        "url": "ask.html",
+        "title": "Maze Cat \u00b7 Time's up",
+        "width": 280,
+        "height": 104,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
       }
     ],
     "security": {

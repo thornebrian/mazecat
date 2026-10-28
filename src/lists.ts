@@ -96,3 +96,9 @@ export function moveTask(text: string, task: string, to: Section): string {
 export function newProject(name: string): string {
   return `${name}:\n  WIP:\n  TODO:\n  - First task (easy)\n  DONE:\n`;
 }
+
+/** The first task under TODO, or null when there is none. */
+export function firstTodo(fileName: string, text: string): string | null {
+  const p = parseProject(fileName, text);
+  return p.ok ? p.items.TODO[0] ?? null : null;
+}

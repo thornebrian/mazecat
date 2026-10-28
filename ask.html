@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Maze Cat · Time's up</title>
+<link rel="stylesheet" href="/src/style.css">
+<style>
+  /* One line, like the first Maze Cat: the question and two buttons, right above the bar. */
+  html, body { background: transparent; overflow: hidden; }
+  .pop { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px; background: rgba(21, 24, 30, .97);
+         border: 1px solid var(--accent); border-radius: 10px; }
+  .q { font-weight: 600; white-space: nowrap; margin-right: auto; }
+  .pop button { min-width: 52px; min-height: 30px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); }
+  .pop button:hover { border-color: var(--muted); }
+  #yes { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="pop" role="alertdialog" aria-labelledby="q">
+  <span class="q" id="q" title="">Need more time?</span>
+  <button id="yes" type="button">Yes</button>
+  <button id="no" type="button">No</button>
+</div>
+<script type="module" src="/src/ask.ts"></script>
+</body>
+</html>
