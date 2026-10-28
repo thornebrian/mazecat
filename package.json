@@ -1,7 +1,7 @@
 {
   "name": "mazecat",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A small focus helper: your task list and a timer that floats over the taskbar.",
   "license": "MIT",
   "type": "module",
