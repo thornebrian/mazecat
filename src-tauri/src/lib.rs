@@ -72,6 +72,15 @@ fn write_project(app: AppHandle, name: String, text: String) -> Result<(), Strin
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // One copy at a time: opening Maze Cat again brings the running bar to the front.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(bar) = app.get_webview_window("bar") {
+                let _ = bar.show();
+                let _ = bar.unminimize();
+                let _ = bar.set_always_on_top(true);
+                let _ = bar.set_focus();
+            }
+        }))
         .invoke_handler(tauri::generate_handler![list_projects, read_project, write_project])
         .run(tauri::generate_context!())
         .expect("Maze Cat couldn't start");
