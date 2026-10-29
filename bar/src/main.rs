@@ -96,8 +96,8 @@ fn window_band(h: HWND) -> Option<u32> {
 fn status(h: HWND) -> String {
     let ui = if has_ui_access() { "on" } else { "off" };
     match window_band(h) {
-        Some(b) => format!("Above-taskbar permission: {ui} (band {b})"),
-        None => format!("Above-taskbar permission: {ui}"),
+        Some(b) => format!("Maze Cat {} \u{00b7} above-taskbar permission: {ui} (band {b})", env!("CARGO_PKG_VERSION")),
+        None => format!("Maze Cat {} \u{00b7} above-taskbar permission: {ui}", env!("CARGO_PKG_VERSION")),
     }
 }
 

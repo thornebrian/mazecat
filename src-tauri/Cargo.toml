@@ -1,6 +1,6 @@
 [package]
 name = "mazecat"
-version = "0.1.1"
+version = "0.2.0"
 description = "A small focus helper: your task list and a timer that floats over the taskbar."
 authors = ["Brian Thorne"]
 license = "MIT"
