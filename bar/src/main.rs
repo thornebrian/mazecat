@@ -378,7 +378,7 @@ fn layout(b: &Bar) -> (f32, Vec<Item>) {
             x += 26.0 + 6.0;
             let clock = clock_label(&b.timer);
             let len = measure(f, &clock, f.clock, f.fmt_center, 200.0, 40.0).Width.ceil();
-            let h = (len + 4.0).min(38.0);
+            let h = (len + 4.0).clamp(34.0, 38.0);
             items.push(Item { hit: Hit::Clock, r: gp::RectF { X: x, Y: (HEIGHT - h) / 2.0, Width: 18.0, Height: h }, label: clock });
             x += 18.0 + 4.0;
             (x, items)
@@ -480,29 +480,46 @@ fn paint(b: &mut Bar) {
                         b.hits.push((Hit::Cat, r));
                     }
                     Hit::Clock => {
-                        let color = if up {
-                            fill_round(g, t.accent, r.X, r.Y, r.Width, r.Height, 6.0);
-                            t.on_accent
-                        } else {
-                            if b.hover == Hit::Clock {
-                                fill_round(g, t.panel, r.X, r.Y, r.Width, r.Height, 6.0);
-                            }
-                            if b.timer.ends_at.is_some() && !b.timer.task.is_empty() { t.accent } else { t.muted }
-                        };
-                        // Vertical, read bottom to top, like the first Maze Cat.
-                        let mut st = 0u32;
-                        gp::GdipSaveGraphics(g, &mut st);
-                        gp::GdipTranslateWorldTransform(g, r.X + r.Width / 2.0, r.Y + r.Height / 2.0, gp::MatrixOrderPrepend);
-                        gp::GdipRotateWorldTransform(g, -90.0, gp::MatrixOrderPrepend);
-                        // Long times (1:00:00) shrink to fit the bar's height instead of losing digits.
+                        // A sand clock: the gold fill drains from the top as time runs out,
+                        // so you can tell how much is left without reading the numbers.
+                        let has = !b.timer.task.is_empty() && b.timer.total_ms > 0.0;
+                        let running = b.timer.ends_at.is_some();
+                        let frac = if up { 1.0 } else if has { (b.timer.remaining() / b.timer.total_ms).clamp(0.0, 1.0) as f32 } else { 0.0 };
+                        let sand = if running || up { t.accent } else { (t.accent & 0x00FF_FFFF) | 0x8000_0000 };
+                        if has || b.hover == Hit::Clock {
+                            fill_round(g, if b.hover == Hit::Clock { t.line } else { t.panel }, r.X, r.Y, r.Width, r.Height, 6.0);
+                        }
+                        let fh = r.Height * frac;
+                        let sand_top = r.Y + r.Height - fh;
+                        if fh > 0.0 {
+                            gp::GdipSetClipRect(g, r.X, sand_top, r.Width, fh, gp::CombineModeReplace);
+                            fill_round(g, sand, r.X, r.Y, r.Width, r.Height, 6.0);
+                            gp::GdipResetClip(g);
+                        }
+                        let base = if running && has { t.accent } else { t.muted };
+                        // Vertical, read bottom to top, like the first Maze Cat. Drawn twice:
+                        // gold over the empty part, dark over the sand.
                         let len = measure(&b.fonts, &it.label, b.fonts.clock, b.fonts.fmt_center, 400.0, 40.0).Width;
                         let fit = ((r.Height - 2.0) / len).min(1.0);
-                        if fit < 1.0 {
-                            gp::GdipScaleWorldTransform(g, fit, fit, gp::MatrixOrderPrepend);
+                        for (color, clip) in [(base, None), (t.on_accent, Some(sand_top))] {
+                            if clip.is_some() && fh <= 0.0 {
+                                continue;
+                            }
+                            let mut st = 0u32;
+                            gp::GdipSaveGraphics(g, &mut st);
+                            if let Some(top) = clip {
+                                gp::GdipSetClipRect(g, r.X, top, r.Width, r.Y + r.Height - top, gp::CombineModeReplace);
+                            }
+                            gp::GdipTranslateWorldTransform(g, r.X + r.Width / 2.0, r.Y + r.Height / 2.0, gp::MatrixOrderPrepend);
+                            gp::GdipRotateWorldTransform(g, -90.0, gp::MatrixOrderPrepend);
+                            // Long times (1:00:00) shrink to fit the bar's height instead of losing digits.
+                            if fit < 1.0 {
+                                gp::GdipScaleWorldTransform(g, fit, fit, gp::MatrixOrderPrepend);
+                            }
+                            let rr = gp::RectF { X: -len / 2.0 - 4.0, Y: -r.Width / 2.0, Width: len + 8.0, Height: r.Width };
+                            text(g, &it.label, b.fonts.clock, b.fonts.fmt_center, color, rr);
+                            gp::GdipRestoreGraphics(g, st);
                         }
-                        let rr = gp::RectF { X: -len / 2.0 - 4.0, Y: -r.Width / 2.0, Width: len + 8.0, Height: r.Width };
-                        text(g, &it.label, b.fonts.clock, b.fonts.fmt_center, color, rr);
-                        gp::GdipRestoreGraphics(g, st);
                         b.hits.push((Hit::Clock, r));
                     }
                     _ => {}
@@ -691,7 +708,8 @@ fn tick(b: &mut Bar) {
     if !up {
         b.rang = false;
     }
-    let key = format!("{}|{}|{}", clock_label(&b.timer), up, b.presets);
+    let sand = if b.timer.total_ms > 0.0 { (b.timer.remaining() / b.timer.total_ms * 80.0) as i32 } else { 0 };
+    let key = format!("{}|{}|{}|{}", clock_label(&b.timer), up, b.presets, sand);
     if key != b.key {
         b.key = key;
         paint(b);
