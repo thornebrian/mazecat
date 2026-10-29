@@ -38,13 +38,16 @@ Until there's a signed release, take the installer from the latest successful ru
 
 ### Keep the bar above the taskbar (local build)
 
-Windows keeps the taskbar above ordinary "always on top" windows. An app can sit above it only if its manifest asks for `uiAccess`, it's signed by a certificate the computer trusts, and it's installed under Program Files. Until there's a Microsoft Store release, you can build that version for your own computer:
+Windows keeps the taskbar above ordinary "always on top" windows. A window can sit above it only if its program's manifest asks for `uiAccess`, the program is signed by a certificate the computer trusts, and it's installed under Program Files. The web engine Maze Cat's windows use stops drawing under `uiAccess`, so this version adds a second, small native program for the bar (`bar/`, `mazecat-bar.exe`). It draws the cat, the task and the timer, and the app keeps all the logic. They talk over a local connection protected by a one-time token. The bar shows in Alt+Tab like any open app; right-click it to pick a task, show your lists or quit.
+
+Until there's a Microsoft Store release, you can build that version for your own computer:
 
 1. Once, in an **admin** PowerShell: `powershell -ExecutionPolicy Bypass -File scripts\make-local-cert.ps1`. This makes a signing certificate that only this computer trusts.
-2. `powershell -ExecutionPolicy Bypass -File scripts\build-local.ps1`. This builds and signs the installer.
-3. Uninstall the regular Maze Cat if you have it, then run the new installer. It asks for admin because it installs for all users under Program Files.
+2. `powershell -ExecutionPolicy Bypass -File scripts\build-local.ps1`. This builds and signs both programs and the installer.
+3. Quit Maze Cat if it's running, then run the new installer. It asks for admin because it installs for all users under Program Files.
+4. Open Maze Cat from the Start menu (as a normal user, not "Run as administrator").
 
-Your lists stay where they are. `npx tauri dev` and the Actions builds keep the regular version, since an unsigned `uiAccess` app won't start.
+Your lists stay where they are. `npx tauri dev` and the Actions builds don't include the native bar, so they show the regular web bar.
 
 ## Build it yourself
 

@@ -36,8 +36,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "./src-tauri -> target"
+          workspaces: |
+            ./src-tauri -> target
+            ./bar -> target
       - run: npm ci
+      # The native bar (uiAccess): built to catch errors; it only runs signed under Program Files.
+      - run: cargo build --release --manifest-path bar/Cargo.toml
       - run: npx tauri build --bundles nsis
       - uses: actions/upload-artifact@v4
         with:
