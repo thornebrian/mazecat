@@ -63,7 +63,8 @@
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "visible": false
+        "visible": false,
+        "focusable": false
       }
     ],
     "security": {

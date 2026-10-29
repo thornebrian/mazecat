@@ -4,7 +4,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { catSvg } from './cat';
-import { TimerState, idle, start, remaining, toggle, format } from './timer';
+import { TimerState, idle, start, remaining, toggle, format, nudge } from './timer';
 
 const win = getCurrentWindow();
 const $ = (id: string) => document.getElementById(id)!;
@@ -97,6 +97,13 @@ async function place() {
 }
 
 $('cat').onclick = toggleNotes;
+// Scroll on the bar: up adds a minute, down takes one away (down to zero means time's up).
+let wheel = 0;
+$('bar').addEventListener('wheel', (e) => {
+  wheel += e.deltaY;
+  const steps = Math.trunc(wheel / 100);
+  if (steps) { wheel -= steps * 100; set(nudge(state, -steps)); }
+}, { passive: true });
 
 // Double-click the bar to pick a task; press and drag it to move it.
 $('bar').addEventListener('dblclick', (e) => {
@@ -172,6 +179,7 @@ listen<NativeMsg>('nbar', async ({ payload: m }) => {
     case 'cat': case 'lists': return toggleNotes();
     case 'pick': if (anchor) emit('picker-open', anchor); return;
     case 'pause': return set(toggle(state));
+    case 'nudge': return set(nudge(state, m.min ?? 0));
     case 'preset':
       defaultMin = m.min ?? defaultMin; store.set('defaultMinutes', defaultMin);
       if (state.task) set(start(state.task, state.project, defaultMin)); else pushNative();

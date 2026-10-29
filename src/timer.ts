@@ -32,3 +32,14 @@ export function format(ms: number): string {
   const mm = String(m).padStart(h ? 2 : 1, '0'), ss = String(sec).padStart(2, '0');
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
+
+/** Mouse wheel on the bar: add or take away minutes. Down to zero means time's up; up from
+ *  time's up starts counting again. Paused stays paused. */
+export function nudge(s: TimerState, minutes: number, now = Date.now()): TimerState {
+  if (!s.task || s.totalMs === 0) return s;
+  const before = remaining(s, now);
+  const left = Math.max(0, before + minutes * 60_000);
+  const totalMs = Math.max(s.totalMs, left);
+  if (s.endsAt !== null) return { ...s, totalMs, endsAt: now + left, leftMs: left };
+  return { ...s, totalMs, leftMs: left };
+}

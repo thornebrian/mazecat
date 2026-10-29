@@ -6,7 +6,7 @@
 //!
 //! main -> bar: {"t":"state", task, project, totalMs, endsAt, leftMs, def}
 //!              {"t":"anchor", right, y}   (physical pixels: right edge and top)
-//! bar -> main: hello(token), cat, pick, lists, preset(min), pause, moved(right, y), up, quit
+//! bar -> main: hello(token), cat, pick, lists, preset(min), pause, nudge(min), moved(right, y), up, quit
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 use serde_json::{json, Value};
@@ -794,6 +794,18 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                     click(b, h);
                 }
             });
+            Some(0)
+        }
+        wm::WM_MOUSEWHEEL => {
+            // Up adds a minute per notch, down takes one away (down to zero means time's up).
+            static WHEEL: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+            let delta = ((wparam >> 16) & 0xFFFF) as u16 as i16 as i32;
+            let total = WHEEL.fetch_add(delta, Ordering::Relaxed) + delta;
+            let steps = total / wm::WHEEL_DELTA as i32;
+            if steps != 0 {
+                WHEEL.fetch_sub(steps * wm::WHEEL_DELTA as i32, Ordering::Relaxed);
+                send(json!({"t": "nudge", "min": steps}));
+            }
             Some(0)
         }
         wm::WM_RBUTTONUP => {
