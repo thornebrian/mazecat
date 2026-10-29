@@ -6,13 +6,16 @@ import { moveTask, firstTodo, tagMinutes } from './lists';
 
 const win = getCurrentWindow();
 const $ = (id: string) => document.getElementById(id)!;
-const W = 250, H = 44;
+const H = 44;
+// Wide enough for its words, whatever the text size: measured, not guessed.
+const width = () => Math.max(250, Math.ceil((document.querySelector('.pop') as HTMLElement).scrollWidth) + 4);
 let ended: { task: string; project: string; minutes: number } | null = null;
 
 listen<{ task: string; project: string; minutes: number; anchor: { right: number; y: number } }>('ask-open', async ({ payload }) => {
   ended = payload;
   $('q').title = `${payload.task}\nYes: run it again · No: mark it done and start the next task`;
   const scale = await win.scaleFactor();
+  const W = width();
   await win.setSize(new LogicalSize(W, H));
   await win.setPosition(new PhysicalPosition(payload.anchor.right - Math.round(W * scale), payload.anchor.y - Math.round((H + 6) * scale)));
   await win.show(); await win.setFocus(); $('yes').focus();
