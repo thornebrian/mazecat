@@ -378,7 +378,7 @@ fn layout(b: &Bar) -> (f32, Vec<Item>) {
             x += 26.0 + 6.0;
             let clock = clock_label(&b.timer);
             let len = measure(f, &clock, f.clock, f.fmt_center, 200.0, 40.0).Width.ceil();
-            let h = (len + 4.0).min(36.0);
+            let h = (len + 4.0).min(38.0);
             items.push(Item { hit: Hit::Clock, r: gp::RectF { X: x, Y: (HEIGHT - h) / 2.0, Width: 18.0, Height: h }, label: clock });
             x += 18.0 + 4.0;
             (x, items)
@@ -494,7 +494,13 @@ fn paint(b: &mut Bar) {
                         gp::GdipSaveGraphics(g, &mut st);
                         gp::GdipTranslateWorldTransform(g, r.X + r.Width / 2.0, r.Y + r.Height / 2.0, gp::MatrixOrderPrepend);
                         gp::GdipRotateWorldTransform(g, -90.0, gp::MatrixOrderPrepend);
-                        let rr = gp::RectF { X: -r.Height / 2.0, Y: -r.Width / 2.0, Width: r.Height, Height: r.Width };
+                        // Long times (1:00:00) shrink to fit the bar's height instead of losing digits.
+                        let len = measure(&b.fonts, &it.label, b.fonts.clock, b.fonts.fmt_center, 400.0, 40.0).Width;
+                        let fit = ((r.Height - 2.0) / len).min(1.0);
+                        if fit < 1.0 {
+                            gp::GdipScaleWorldTransform(g, fit, fit, gp::MatrixOrderPrepend);
+                        }
+                        let rr = gp::RectF { X: -len / 2.0 - 4.0, Y: -r.Width / 2.0, Width: len + 8.0, Height: r.Width };
                         text(g, &it.label, b.fonts.clock, b.fonts.fmt_center, color, rr);
                         gp::GdipRestoreGraphics(g, st);
                         b.hits.push((Hit::Clock, r));
@@ -867,7 +873,7 @@ unsafe fn make_fonts() -> Fonts {
     gp::GdipSetStringFormatLineAlign(fmt_task, gp::StringAlignmentCenter);
     gp::GdipSetStringFormatTrimming(fmt_task, gp::StringTrimmingEllipsisWord);
     let mut fmt_center = std::ptr::null_mut();
-    gp::GdipCreateStringFormat(gp::StringFormatFlagsNoWrap, 0, &mut fmt_center);
+    gp::GdipCreateStringFormat(gp::StringFormatFlagsNoWrap | gp::StringFormatFlagsNoClip, 0, &mut fmt_center);
     gp::GdipSetStringFormatAlign(fmt_center, gp::StringAlignmentCenter);
     gp::GdipSetStringFormatLineAlign(fmt_center, gp::StringAlignmentCenter);
 
