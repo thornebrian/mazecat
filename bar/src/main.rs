@@ -50,6 +50,68 @@ fn now_ms() -> f64 {
 static OUT: Mutex<Option<TcpStream>> = Mutex::new(None);
 static HWND_BAR: AtomicIsize = AtomicIsize::new(0);
 
+// ---------- "above the taskbar": check it, and ask for the right z-order band ----------
+
+/// True when Windows actually granted uiAccess (signed, under Program Files, started through the shell).
+fn has_ui_access() -> bool {
+    use windows_sys::Win32::Security::{GetTokenInformation, TokenUIAccess, TOKEN_QUERY};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    unsafe {
+        let mut token = std::ptr::null_mut();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return false;
+        }
+        let mut on: u32 = 0;
+        let mut len = 0u32;
+        let ok = GetTokenInformation(token, TokenUIAccess, &mut on as *mut u32 as *mut _, 4, &mut len);
+        windows_sys::Win32::Foundation::CloseHandle(token);
+        ok != 0 && on != 0
+    }
+}
+
+/// Windows keeps windows in z-order "bands"; the taskbar sits in the desktop band and
+/// uiAccess windows can live in the band above it (ZBID_UIACCESS = 2). These two calls
+/// are undocumented user32 exports (used by accessibility tools), so look them up and
+/// fall back gracefully when they're missing.
+const ZBID_UIACCESS: u32 = 2;
+type CreateWindowInBandFn = unsafe extern "system" fn(u32, PCWSTR, PCWSTR, u32, i32, i32, i32, i32, HWND, wm::HMENU, windows_sys::Win32::Foundation::HINSTANCE, *const core::ffi::c_void, u32) -> HWND;
+type GetWindowBandFn = unsafe extern "system" fn(HWND, *mut u32) -> i32;
+
+fn user32(name: &str) -> windows_sys::Win32::Foundation::FARPROC {
+    use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    let lib = wide("user32.dll");
+    let mut n = name.as_bytes().to_vec();
+    n.push(0);
+    unsafe { GetProcAddress(LoadLibraryW(lib.as_ptr()), n.as_ptr()) }
+}
+
+fn window_band(h: HWND) -> Option<u32> {
+    let f = user32("GetWindowBand")?;
+    let f: GetWindowBandFn = unsafe { std::mem::transmute(f) };
+    let mut band = 0u32;
+    (unsafe { f(h, &mut band) } != 0).then_some(band)
+}
+
+/// One line about how the bar is running, for the right-click menu and the log.
+fn status(h: HWND) -> String {
+    let ui = if has_ui_access() { "on" } else { "off" };
+    match window_band(h) {
+        Some(b) => format!("Above-taskbar permission: {ui} (band {b})"),
+        None => format!("Above-taskbar permission: {ui}"),
+    }
+}
+
+/// Writes the status next to your lists (%LOCALAPPDATA%\MazeCat\bar.log), to help when the bar misbehaves.
+fn log(line: &str) {
+    if let Some(dir) = std::env::var_os("LOCALAPPDATA") {
+        let dir = std::path::Path::new(&dir).join("MazeCat");
+        let _ = std::fs::create_dir_all(&dir);
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("bar.log")) {
+            let _ = writeln!(f, "{:.0} {line}", now_ms() / 1000.0);
+        }
+    }
+}
+
 fn send(v: Value) {
     if let Ok(mut out) = OUT.lock() {
         if let Some(s) = out.as_mut() {
@@ -550,6 +612,10 @@ fn click(b: &mut Bar, hit: Hit) {
 fn menu(hwnd: HWND) {
     unsafe {
         let m = wm::CreatePopupMenu();
+        let info = status(hwnd);
+        let w = wide(&info);
+        wm::AppendMenuW(m, wm::MF_STRING | wm::MF_GRAYED, 99, w.as_ptr());
+        wm::AppendMenuW(m, wm::MF_SEPARATOR, 0, std::ptr::null());
         let items = [(1usize, "Pick a task"), (2, "Show or hide your lists"), (0, ""), (3, "Quit Maze Cat")];
         for (id, label) in items {
             if id == 0 {
@@ -849,11 +915,24 @@ fn main() {
         let title = wide("Maze Cat");
         // Not a tool window: it shows in Alt+Tab like any open app. That is what lets
         // Windows keep a uiAccess window above the taskbar (Brian's finding from the first Maze Cat).
-        let ex = wm::WS_EX_LAYERED | wm::WS_EX_TOPMOST | wm::WS_EX_NOACTIVATE | wm::WS_EX_APPWINDOW;
-        let hwnd = wm::CreateWindowExW(ex, class.as_ptr(), title.as_ptr(), wm::WS_POPUP, 0, 0, 1, 1, std::ptr::null_mut(), std::ptr::null_mut(), hinst, std::ptr::null());
+        // No WS_EX_NOACTIVATE either: Windows leaves such windows out of Alt+Tab. Clicks still
+        // don't take focus (WM_MOUSEACTIVATE answers MA_NOACTIVATE).
+        let ex = wm::WS_EX_LAYERED | wm::WS_EX_TOPMOST | wm::WS_EX_APPWINDOW;
+        let mut hwnd: HWND = std::ptr::null_mut();
+        if has_ui_access() {
+            if let Some(f) = user32("CreateWindowInBand") {
+                let f: CreateWindowInBandFn = std::mem::transmute(f);
+                hwnd = f(ex, class.as_ptr(), title.as_ptr(), wm::WS_POPUP, 0, 0, 1, 1, std::ptr::null_mut(), std::ptr::null_mut(), hinst, std::ptr::null(), ZBID_UIACCESS);
+            }
+        }
         if hwnd.is_null() {
+            hwnd = wm::CreateWindowExW(ex, class.as_ptr(), title.as_ptr(), wm::WS_POPUP, 0, 0, 1, 1, std::ptr::null_mut(), std::ptr::null_mut(), hinst, std::ptr::null());
+        }
+        if hwnd.is_null() {
+            log("could not create the bar window");
             return;
         }
+        log(&status(hwnd));
         HWND_BAR.store(hwnd as isize, Ordering::Relaxed);
 
         // Borrow the main app's icon for Alt+Tab and the taskbar.
