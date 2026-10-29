@@ -6,6 +6,8 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+mod jira;
+
 const WELCOME: &str = "Welcome:\n  WIP:\n  - Try Maze Cat by clicking this line, then Start (easy)\n  TODO:\n  - Write your first list with New list (easy)\n  - Click the cat on the bar to show or hide your lists (easy)\n  DONE:\n  - Install Maze Cat (easy)\n";
 
 fn notes_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -72,7 +74,11 @@ fn write_project(app: AppHandle, name: String, text: String) -> Result<(), Strin
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![list_projects, read_project, write_project])
+        .manage(jira::JiraState::default())
+        .invoke_handler(tauri::generate_handler![
+            list_projects, read_project, write_project,
+            jira::jira_config, jira::jira_save, jira::jira_issues, jira::jira_move
+        ])
         .run(tauri::generate_context!())
         .expect("Maze Cat couldn't start");
 }

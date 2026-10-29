@@ -1,9 +1,10 @@
-// Task lists: one project per .yaml file, sections WIP / TODO / DONE, one "- item" per line.
+// Task lists: one project per .yaml file, sections WIP / TODO / PLANNED / DONE, one "- item" per line.
+// PLANNED is optional: the backlog, waiting for a sprint (Jira) or for later (local lists).
 // Kept free of Tauri so it can be tested on its own (see tests/).
 import YAML from 'yaml';
 
-export type Section = 'WIP' | 'TODO' | 'DONE';
-export const SECTIONS: Section[] = ['WIP', 'TODO', 'DONE'];
+export type Section = 'WIP' | 'TODO' | 'PLANNED' | 'DONE';
+export const SECTIONS: Section[] = ['WIP', 'TODO', 'PLANNED', 'DONE'];
 
 export interface Parsed {
   ok: boolean;
@@ -12,7 +13,7 @@ export interface Parsed {
   items: Record<Section, string[]>;
 }
 
-const empty = (): Record<Section, string[]> => ({ WIP: [], TODO: [], DONE: [] });
+const empty = (): Record<Section, string[]> => ({ WIP: [], TODO: [], PLANNED: [], DONE: [] });
 
 /** Read a project file. Never throws: problems come back as a friendly message. */
 export function parseProject(fileName: string, text: string): Parsed {
@@ -77,7 +78,7 @@ export function taskAtLine(text: string, lineNo: number): { task: string; sectio
   if (!m) return null;
   let section: Section | null = null;
   for (let i = lineNo; i >= 0; i--) {
-    const h = /^\s*(WIP|TODO|DONE)\s*:\s*$/.exec(lines[i]);
+    const h = /^\s*(WIP|TODO|PLANNED|DONE)\s*:\s*$/.exec(lines[i]);
     if (h) { section = h[1] as Section; break; }
   }
   return { task: unquote(m[1]), section };

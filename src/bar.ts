@@ -3,7 +3,8 @@ import { getCurrentWindow, PhysicalPosition, LogicalSize, primaryMonitor } from 
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emit } from '@tauri-apps/api/event';
 import { catSvg } from './cat';
-import { TimerState, idle, start, remaining, toggle, format } from './timer';
+import { TimerState, idle, start, remaining, toggle, format, elapsedMs, runEnded } from './timer';
+import { addSpent, alreadyLogged } from './prefs';
 
 const win = getCurrentWindow();
 const $ = (id: string) => document.getElementById(id)!;
@@ -30,7 +31,10 @@ function render() {
   fit();
 }
 
-function set(s: TimerState) { state = s; store.set('timer', s); render(); emit('timer-state', s); }
+function set(s: TimerState) {
+  // A run that ends adds its time to its task, for the time-spent log in Jira.
+  if (runEnded(state, s) && !alreadyLogged(state)) addSpent(state.project, state.task, elapsedMs(state));
+  state = s; store.set('timer', s); render(); emit('timer-state', s); }
 
 // A soft two-note chime made on the fly (no sound files to license).
 function chime() {

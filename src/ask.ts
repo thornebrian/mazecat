@@ -1,8 +1,8 @@
 // Time's up: "Yes" runs the same task again; "No" marks it done and starts the next task under TODO.
-import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, PhysicalPosition, LogicalSize } from '@tauri-apps/api/window';
 import { emit, listen } from '@tauri-apps/api/event';
-import { moveTask, firstTodo, tagMinutes } from './lists';
+import { firstTodo, tagMinutes } from './lists';
+import { readProject, moveTo } from './source';
 
 const win = getCurrentWindow();
 const $ = (id: string) => document.getElementById(id)!;
@@ -28,16 +28,14 @@ $('no').onclick = async () => {
   if (!ended) return;
   await win.hide();
   const { task, project } = ended;
-  let text = await invoke<string>('read_project', { name: project });
-  text = moveTask(text, task, 'DONE');
-  const next = firstTodo(project, text);
+  try { await moveTo(project, task, 'DONE'); } catch (e) { console.warn(e); }
+  const next = firstTodo(project, await readProject(project));
   if (next) {
-    text = moveTask(text, next, 'WIP');
     await emit('start-task', { task: next, project, minutes: tagMinutes(next) });
+    try { await moveTo(project, next, 'WIP'); } catch (e) { console.warn(e); }
   } else {
     await emit('timer-control', { action: 'stop' });
   }
-  await invoke('write_project', { name: project, text });
   await emit('lists-changed', { project });
 };
 
