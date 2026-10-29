@@ -75,7 +75,7 @@ fn write_project(app: AppHandle, name: String, text: String) -> Result<(), Strin
 /// without taking focus. The 3-second check in the bar stays as a backup.
 #[cfg(windows)]
 mod on_top {
-    use std::sync::atomic::{AtomicIsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
     use windows_sys::Win32::Foundation::HWND;
     use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -92,8 +92,21 @@ mod on_top {
         }
     }
 
+    static BURST: AtomicBool = AtomicBool::new(false);
+
     unsafe extern "system" fn on_foreground(_: HWINEVENTHOOK, _: u32, _: HWND, _: i32, _: i32, _: u32, _: u32) {
         raise();
+        // The taskbar raises itself again a moment after it takes focus, so answer
+        // with a short burst of re-raises instead of a single one.
+        if !BURST.swap(true, Ordering::AcqRel) {
+            std::thread::spawn(|| {
+                for ms in [30u64, 90, 200, 400, 800, 1500] {
+                    std::thread::sleep(std::time::Duration::from_millis(ms));
+                    raise();
+                }
+                BURST.store(false, Ordering::Release);
+            });
+        }
     }
 
     pub fn watch(bar: isize) {
