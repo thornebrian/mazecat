@@ -1,8 +1,8 @@
 // The quick picker: pops up over the bar. Double-click a task to start it; the picker closes by itself.
-import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, PhysicalPosition, LogicalSize } from '@tauri-apps/api/window';
 import { emit, listen } from '@tauri-apps/api/event';
-import { parseProject, moveTask, tagMinutes, Section } from './lists';
+import { parseProject, tagMinutes, Section } from './lists';
+import { listProjects, readProject, moveTo, isReadOnly } from './source';
 import { defaultMinutes } from './prefs';
 
 const win = getCurrentWindow();
@@ -19,13 +19,14 @@ async function show(anchor: { right: number; y: number }) {
   const scale = await win.scaleFactor();
   await win.setSize(new LogicalSize(W, H));
   await win.setPosition(new PhysicalPosition(anchor.right - Math.round(W * scale), anchor.y - Math.round((H + 6) * scale)));
-  await load();
+  await load(true);
   await win.show(); await win.setFocus();
   (document.querySelector('.pick') as HTMLButtonElement | null)?.focus();
 }
 
-async function load() {
-  const names = await invoke<string[]>('list_projects');
+async function load(refresh = false) {
+  let names: string[] = [], note = '';
+  try { ({ names, note } = await listProjects(refresh)); } catch (e) { names = []; note = String(e); }
   if (!names.includes(project)) project = names.includes(running.project) ? running.project : names[0] ?? '';
   const nav = $('projects'); nav.innerHTML = '';
   for (const n of names) {
@@ -35,9 +36,10 @@ async function load() {
     nav.appendChild(b);
   }
   nav.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest' });
-  const text = project ? await invoke<string>('read_project', { name: project }) : '';
+  const text = project ? await readProject(project) : '';
   const p = parseProject(project, text);
   const list = $('list'); list.innerHTML = '';
+  $('foot').textContent = note || (isReadOnly() ? 'Jira Sync · double-click to start · ✓ done in Jira · Esc' : 'Double-click to start · ✓ done · Esc to close');
   if (!p.ok) { list.innerHTML = `<div class="msg bad"></div>`; list.firstElementChild!.textContent = p.message; return; }
   const sections: Section[] = ['WIP', 'TODO'];
   let any = false;
@@ -47,7 +49,7 @@ async function load() {
     const h = document.createElement('h2'); h.textContent = s === 'WIP' ? 'In progress' : 'To do'; list.appendChild(h);
     for (const task of p.items[s]) list.appendChild(row(task, text));
   }
-  if (!any) list.innerHTML = '<div class="empty">Nothing to do here. Click the cat to add tasks.</div>';
+  if (!any) list.innerHTML = `<div class="empty">${isReadOnly() ? 'Nothing assigned to you here.' : 'Nothing to do here. Click the cat to add tasks.'}</div>`;
 }
 
 function row(task: string, text: string) {
@@ -68,16 +70,17 @@ function row(task: string, text: string) {
 async function start(task: string, text: string) {
   await win.hide();
   await emit('start-task', { task, project, minutes: tagMinutes(task) });
-  const moved = moveTask(text, task, 'WIP');
-  if (moved !== text) await invoke('write_project', { name: project, text: moved });
+  try { await moveTo(project, task, 'WIP', text); } catch (e) { console.warn(e); }
   await emit('lists-changed', { project });
 }
 
 async function finish(task: string, text: string) {
-  await invoke('write_project', { name: project, text: moveTask(text, task, 'DONE') });
+  let note = '';
+  try { note = await moveTo(project, task, 'DONE', text); } catch (e) { note = String(e); }
   if (running.task === task && running.project === project) await emit('timer-control', { action: 'stop' });
   await emit('lists-changed', { project });
   await load();
+  if (note) $('foot').textContent = note;
 }
 
 listen<{ right: number; y: number }>('picker-open', ({ payload }) => show(payload));

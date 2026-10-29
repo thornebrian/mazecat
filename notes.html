@@ -23,6 +23,15 @@
   .row { display: flex; flex-wrap: wrap; gap: 6px; }
   .hint { font-size: 12px; color: var(--muted); }
   kbd { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  .mode { flex: none; min-width: 0; }
+  .ro { font-size: 12.5px; color: var(--muted); padding: 8px 10px; border: 1px dashed var(--line); border-radius: 8px; }
+  textarea[readonly] { color: var(--muted); }
+  dialog { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 16px; width: min(440px, 92vw); }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  dialog h2 { margin: 0 0 4px; font-size: 15px; }
+  dialog label { display: block; margin: 10px 0 4px; font-size: 12.5px; color: var(--muted); }
+  dialog input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
+  dialog .row { margin-top: 14px; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -30,9 +39,16 @@
   <span id="logo"></span>
   <label for="project" class="hint" style="position:absolute;left:-9999px">List</label>
   <select id="project" aria-label="List"></select>
+  <select id="source" class="mode" aria-label="Where your lists come from">
+    <option value="local">Local lists</option>
+    <option value="jira">Jira Sync</option>
+  </select>
   <button class="btn" id="newlist" type="button">New list</button>
+  <button class="btn" id="jirasettings" type="button" hidden>Jira settings</button>
+  <button class="btn" id="refresh" type="button" hidden aria-label="Refresh from Jira">↻</button>
 </header>
 <main>
+  <div class="ro" id="ro" hidden>Jira Sync is read-only: Start moves a task to In Progress, Mark done moves it to Done and logs the time spent. To add or edit tasks, do it in Jira, or switch to Local lists.</div>
   <textarea id="editor" spellcheck="false" aria-label="Task list (YAML)"></textarea>
   <div class="status" id="status" aria-live="polite"></div>
   <section class="now" aria-label="Focus">
@@ -49,6 +65,26 @@
     <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> starts the task under the cursor. Tags set the time: (15m), (1h), or (easy) 10 min, (mid) 25, (hard) 1 h.</span>
   </section>
 </main>
+<dialog id="jiradlg" aria-labelledby="jiratitle">
+  <form method="dialog" id="jiraform">
+    <h2 id="jiratitle">Jira settings</h2>
+    <span class="hint">Maze Cat reads your Jira issues and only changes their state. Your token stays in Windows Credential Manager.</span>
+    <label for="jsite">Jira address</label>
+    <input id="jsite" type="url" placeholder="https://yourteam.atlassian.net" autocomplete="url" required>
+    <label for="jemail">Email you sign in with</label>
+    <input id="jemail" type="email" autocomplete="username" required>
+    <label for="jtoken">API token (leave blank to keep the saved one)</label>
+    <input id="jtoken" type="password" autocomplete="off" spellcheck="false">
+    <span class="hint">Make one at id.atlassian.com → Security → API tokens.</span>
+    <label for="jjql">Filter (JQL, optional)</label>
+    <input id="jjql" type="text" placeholder="Your open issues, plus those done in the last 7 days" spellcheck="false">
+    <div class="status" id="jstatus" aria-live="polite"></div>
+    <div class="row">
+      <button class="btn" value="cancel" formnovalidate type="submit">Cancel</button>
+      <button class="btn primary" id="jsave" value="save" type="submit">Save and test</button>
+    </div>
+  </form>
+</dialog>
 <script type="module" src="/src/notes.ts"></script>
 </body>
 </html>

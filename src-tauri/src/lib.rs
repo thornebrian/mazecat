@@ -6,6 +6,8 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 
+mod jira;
+
 const WELCOME: &str = "Welcome:\n  WIP:\n  - Try Maze Cat by clicking this line, then Start (easy)\n  TODO:\n  - Write your first list with New list (easy)\n  - Click the cat on the bar to show or hide your lists (easy)\n  DONE:\n  - Install Maze Cat (easy)\n";
 
 fn notes_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -208,6 +210,7 @@ pub fn run() {
             let _ = app.emit_to("bar", "nbar", serde_json::json!({ "t": "again" }));
         }))
         .manage(native_bar::Link::default())
+        .manage(jira::JiraState::default())
         .setup(|_app| {
             #[cfg(windows)]
             native_bar::start(_app.handle(), &_app.state::<native_bar::Link>());
@@ -218,7 +221,11 @@ pub fn run() {
             read_project,
             write_project,
             native_bar::nbar_mode,
-            native_bar::nbar_send
+            native_bar::nbar_send,
+            jira::jira_config,
+            jira::jira_save,
+            jira::jira_issues,
+            jira::jira_move
         ])
         .run(tauri::generate_context!())
         .expect("Maze Cat couldn't start");
