@@ -36,6 +36,16 @@ If a file can't be read (two projects in one file, a stray bracket), Maze Cat te
 
 Until there's a signed release, take the installer from the latest successful run on the **Actions** tab (artifact **mazecat-windows**). Windows SmartScreen will warn that the app isn't recognized: choose **More info**, then **Run anyway**. Code signing is planned.
 
+### Keep the bar above the taskbar (local build)
+
+Windows keeps the taskbar above ordinary "always on top" windows. An app can sit above it only if its manifest asks for `uiAccess`, it's signed by a certificate the computer trusts, and it's installed under Program Files. Until there's a Microsoft Store release, you can build that version for your own computer:
+
+1. Once, in an **admin** PowerShell: `powershell -ExecutionPolicy Bypass -File scripts\make-local-cert.ps1`. This makes a signing certificate that only this computer trusts.
+2. `powershell -ExecutionPolicy Bypass -File scripts\build-local.ps1`. This builds and signs the installer.
+3. Uninstall the regular Maze Cat if you have it, then run the new installer. It asks for admin because it installs for all users under Program Files.
+
+Your lists stay where they are. `npx tauri dev` and the Actions builds keep the regular version, since an unsigned `uiAccess` app won't start.
+
 ## Build it yourself
 
 You need [Node.js 22](https://nodejs.org/), [Rust](https://rustup.rs/) and, on Windows, the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
