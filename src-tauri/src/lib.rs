@@ -77,11 +77,13 @@ fn write_project(app: AppHandle, name: String, text: String) -> Result<(), Strin
 /// a one-time token: one JSON message per line. Without the native bar (dev runs, other
 /// systems, or if it can't start) the web bar shows instead, as before.
 mod native_bar {
-    use serde_json::{json, Value};
+    use serde_json::Value;
     use std::io::Write;
     use std::net::TcpStream;
     use std::sync::Mutex;
-    use tauri::{AppHandle, Emitter, State};
+    use tauri::State;
+    #[cfg(windows)]
+    use {serde_json::json, tauri::{AppHandle, Emitter}};
 
     #[derive(Default)]
     pub struct Link {
@@ -157,21 +159,33 @@ mod native_bar {
         std::thread::spawn(move || {
             for conn in listener.incoming() {
                 let Ok(s) = conn else { continue };
-                let _ = s.set_read_timeout(Some(std::time::Duration::from_secs(5)));
                 let Ok(r) = s.try_clone() else { continue };
-                let mut lines = BufReader::new(r).lines();
-                let hello: Value = lines.next().and_then(|l| l.ok()).and_then(|l| serde_json::from_str(&l).ok()).unwrap_or_default();
+                // Wait up to 5 s for the hello, on the handle we read from (a clone can
+                // keep its own timeout on Windows, so set and clear it on this one).
+                let _ = r.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+                let mut reader = BufReader::new(r);
+                let mut first = String::new();
+                let _ = reader.read_line(&mut first);
+                let hello: Value = serde_json::from_str(first.trim()).unwrap_or_default();
                 if hello["t"] != "hello" || hello["token"].as_str() != Some(token.as_str()) {
                     continue; // not our bar: drop it and keep waiting
                 }
-                let _ = s.set_read_timeout(None);
+                let _ = reader.get_ref().set_read_timeout(None);
                 let _ = s.set_nodelay(true);
                 let link = app.state::<Link>();
                 *link.out.lock().unwrap() = Some(s);
                 set_mode(&app, &link, "ready");
-                for line in lines {
-                    let Ok(line) = line else { break };
-                    let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    match reader.read_line(&mut line) {
+                        Ok(0) => break, // the bar closed
+                        Ok(_) => {}
+                        // A quiet bar is fine: only a real error or the end means it's gone.
+                        Err(e) if matches!(e.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted) => continue,
+                        Err(_) => break,
+                    }
+                    let Ok(v) = serde_json::from_str::<Value>(line.trim()) else { continue };
                     if v["t"] == "quit" {
                         app.exit(0);
                         return;
