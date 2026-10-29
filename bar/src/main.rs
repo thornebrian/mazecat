@@ -92,6 +92,27 @@ fn window_band(h: HWND) -> Option<u32> {
     (unsafe { f(h, &mut band) } != 0).then_some(band)
 }
 
+fn prefs_file() -> Option<std::path::PathBuf> {
+    std::env::var_os("LOCALAPPDATA").map(|d| std::path::Path::new(&d).join("MazeCat").join("bar.json"))
+}
+
+fn load_compact() -> bool {
+    prefs_file()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .and_then(|v| v["compact"].as_bool())
+        .unwrap_or(false)
+}
+
+fn save_compact(on: bool) {
+    if let Some(p) = prefs_file() {
+        if let Some(d) = p.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let _ = std::fs::write(p, json!({ "compact": on }).to_string());
+    }
+}
+
 /// One line about how the bar is running, for the right-click menu and the log.
 fn status(h: HWND) -> String {
     let ui = if has_ui_access() { "on" } else { "off" };
@@ -208,7 +229,10 @@ const PRESETS: [(u32, &str); 4] = [(60, "1 h"), (25, "25 min"), (5, "5 min"), (1
 
 struct Fonts {
     task: *mut gp::GpFont,
+    /// Compact mode: a narrower face, so a two-line task takes less of the taskbar.
+    task_compact: *mut gp::GpFont,
     clock: *mut gp::GpFont,
+    clock_compact: *mut gp::GpFont,
     fmt_task: *mut gp::GpStringFormat,
     fmt_center: *mut gp::GpStringFormat,
     measure: *mut gp::GpGraphics,
@@ -228,6 +252,7 @@ struct Bar {
     shown: bool,
     got_state: bool,
     light: bool,
+    compact: bool,
     key: String,
     hits: Vec<(Hit, gp::RectF)>,
     fonts: Fonts,
@@ -298,11 +323,12 @@ unsafe fn measure(f: &Fonts, s: &str, font: *mut gp::GpFont, fmt: *mut gp::GpStr
 }
 
 /// Maze Cat's mark, the same shapes as src/cat.ts (a 24-unit square), drawn in a 26 px button.
-unsafe fn draw_cat(g: *mut gp::GpGraphics, x: f32, y: f32, awake: bool, t: &Theme) {
+unsafe fn draw_cat(g: *mut gp::GpGraphics, x: f32, y: f32, size: f32, awake: bool, t: &Theme) {
     let mut state = 0u32;
     gp::GdipSaveGraphics(g, &mut state);
+    let inner = size - 4.0;
     gp::GdipTranslateWorldTransform(g, x + 2.0, y + 2.0, gp::MatrixOrderPrepend);
-    gp::GdipScaleWorldTransform(g, 22.0 / 24.0, 22.0 / 24.0, gp::MatrixOrderPrepend);
+    gp::GdipScaleWorldTransform(g, inner / 24.0, inner / 24.0, gp::MatrixOrderPrepend);
 
     let mut head = std::ptr::null_mut();
     gp::GdipCreatePath(gp::FillModeAlternate, &mut head);
@@ -370,17 +396,19 @@ fn layout(b: &Bar) -> (f32, Vec<Item>) {
             (x, items)
         } else {
             let label = task_label(&b.timer);
-            let tw = measure(f, &label, f.task, f.fmt_task, 210.0, 31.0).Width.ceil().clamp(20.0, 210.0);
-            let mut x = 17.0;
+            // Pretty (default) or compact: same pieces, tighter spacing and a narrower face.
+            let (font, max_w, gap, cat, clock_w, left) = if b.compact { (f.task_compact, 140.0, 3.0, 22.0, 16.0, 9.0) } else { (f.task, 210.0, 6.0, 26.0, 20.0, 17.0) };
+            let tw = measure(f, &label, font, f.fmt_task, max_w, 31.0).Width.ceil().clamp(20.0, max_w);
+            let mut x = left;
             items.push(Item { hit: Hit::Task, r: gp::RectF { X: x, Y: 4.5, Width: tw, Height: 31.0 }, label });
-            x += tw + 6.0;
-            items.push(Item { hit: Hit::Cat, r: gp::RectF { X: x, Y: 7.0, Width: 26.0, Height: 26.0 }, label: String::new() });
-            x += 26.0 + 6.0;
+            x += tw + gap;
+            items.push(Item { hit: Hit::Cat, r: gp::RectF { X: x, Y: (HEIGHT - cat) / 2.0, Width: cat, Height: cat }, label: String::new() });
+            x += cat + gap;
             let clock = clock_label(&b.timer);
-            let len = measure(f, &clock, f.clock, f.fmt_center, 200.0, 40.0).Width.ceil();
+            let len = measure(f, &clock, if b.compact { f.clock_compact } else { f.clock }, f.fmt_center, 200.0, 40.0).Width.ceil();
             let h = (len + 4.0).clamp(34.0, 38.0);
-            items.push(Item { hit: Hit::Clock, r: gp::RectF { X: x, Y: (HEIGHT - h) / 2.0, Width: 18.0, Height: h }, label: clock });
-            x += 18.0 + 4.0;
+            items.push(Item { hit: Hit::Clock, r: gp::RectF { X: x, Y: (HEIGHT - h) / 2.0, Width: clock_w, Height: h }, label: clock });
+            x += clock_w + if b.compact { 2.0 } else { 4.0 };
             (x, items)
         }
     }
@@ -461,14 +489,14 @@ fn paint(b: &mut Bar) {
                 fill_round(g, t.hover, 0.0, 0.0, w_logical, HEIGHT, 8.0);
             }
             let sep = brush(t.sep);
-            gp::GdipFillRectangle(g, sep as *mut gp::GpBrush, 8.0, 8.0, 1.0, HEIGHT - 16.0);
+            gp::GdipFillRectangle(g, sep as *mut gp::GpBrush, if b.compact { 4.0 } else { 8.0 }, 8.0, 1.0, HEIGHT - 16.0);
             gp::GdipDeleteBrush(sep as *mut gp::GpBrush);
             for it in &items {
                 let r = it.r;
                 match it.hit {
                     Hit::Task => {
                         let color = if b.timer.task.is_empty() { t.muted } else { t.fg };
-                        text(g, &it.label, b.fonts.task, b.fonts.fmt_task, color, r);
+                        text(g, &it.label, if b.compact { b.fonts.task_compact } else { b.fonts.task }, b.fonts.fmt_task, color, r);
                         // The whole left part (separator to cat) picks and drags.
                         b.hits.push((Hit::Task, gp::RectF { X: 0.0, Y: 0.0, Width: r.X + r.Width + 3.0, Height: HEIGHT }));
                     }
@@ -476,7 +504,7 @@ fn paint(b: &mut Bar) {
                         if b.hover == Hit::Cat {
                             fill_round(g, t.panel, r.X, r.Y, r.Width, r.Height, 7.0);
                         }
-                        draw_cat(g, r.X, r.Y, up, &t);
+                        draw_cat(g, r.X, r.Y, r.Width, up, &t);
                         b.hits.push((Hit::Cat, r));
                     }
                     Hit::Clock => {
@@ -496,10 +524,12 @@ fn paint(b: &mut Bar) {
                             fill_round(g, sand, r.X, r.Y, r.Width, r.Height, 6.0);
                             gp::GdipResetClip(g);
                         }
-                        let base = if running && has { t.accent } else { t.muted };
+                        // Light text over the empty part, dark text over the sand: easy to read either way.
+                        let base = if running && has { t.fg } else { t.muted };
+                        let clock_font = if b.compact { b.fonts.clock_compact } else { b.fonts.clock };
                         // Vertical, read bottom to top, like the first Maze Cat. Drawn twice:
                         // gold over the empty part, dark over the sand.
-                        let len = measure(&b.fonts, &it.label, b.fonts.clock, b.fonts.fmt_center, 400.0, 40.0).Width;
+                        let len = measure(&b.fonts, &it.label, clock_font, b.fonts.fmt_center, 400.0, 40.0).Width;
                         let fit = ((r.Height - 2.0) / len).min(1.0);
                         for (color, clip) in [(base, None), (t.on_accent, Some(sand_top))] {
                             if clip.is_some() && fh <= 0.0 {
@@ -517,7 +547,7 @@ fn paint(b: &mut Bar) {
                                 gp::GdipScaleWorldTransform(g, fit, fit, gp::MatrixOrderPrepend);
                             }
                             let rr = gp::RectF { X: -len / 2.0 - 4.0, Y: -r.Width / 2.0, Width: len + 8.0, Height: r.Width };
-                            text(g, &it.label, b.fonts.clock, b.fonts.fmt_center, color, rr);
+                            text(g, &it.label, clock_font, b.fonts.fmt_center, color, rr);
                             gp::GdipRestoreGraphics(g, st);
                         }
                         b.hits.push((Hit::Clock, r));
@@ -639,13 +669,15 @@ fn menu(hwnd: HWND) {
         let w = wide(&info);
         wm::AppendMenuW(m, wm::MF_STRING | wm::MF_GRAYED, 99, w.as_ptr());
         wm::AppendMenuW(m, wm::MF_SEPARATOR, 0, std::ptr::null());
-        let items = [(1usize, "Pick a task"), (2, "Show or hide your lists"), (0, ""), (3, "Quit Maze Cat")];
+        let compact = with_bar(|b| b.compact).unwrap_or(false);
+        let items = [(1usize, "Pick a task"), (2, "Show or hide your lists"), (0, ""), (4, "Compact bar"), (0, ""), (3, "Quit Maze Cat")];
         for (id, label) in items {
             if id == 0 {
                 wm::AppendMenuW(m, wm::MF_SEPARATOR, 0, std::ptr::null());
             } else {
                 let w = wide(label);
-                wm::AppendMenuW(m, wm::MF_STRING, id, w.as_ptr());
+                let checked = if id == 4 && compact { wm::MF_CHECKED } else { wm::MF_UNCHECKED };
+                wm::AppendMenuW(m, wm::MF_STRING | checked, id, w.as_ptr());
             }
         }
         let mut pt = POINT { x: 0, y: 0 };
@@ -658,6 +690,14 @@ fn menu(hwnd: HWND) {
         match cmd {
             1 => send(json!({"t": "pick"})),
             2 => send(json!({"t": "lists"})),
+            4 => {
+                with_bar(|b| {
+                    b.compact = !b.compact;
+                    save_compact(b.compact);
+                    b.key.clear();
+                    paint(b);
+                });
+            }
             3 => {
                 send(json!({"t": "quit"}));
                 wm::PostMessageW(hwnd, wm::WM_CLOSE, 0, 0);
@@ -894,8 +934,13 @@ unsafe fn make_fonts() -> Fonts {
     let mono = family(&["Cascadia Mono", "Consolas", "Courier New"]);
     let mut task = std::ptr::null_mut();
     gp::GdipCreateFont(sans, 12.5, gp::FontStyleRegular, gp::UnitPixel, &mut task);
+    let narrow = family(&["Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI", "Tahoma"]);
+    let mut task_compact = std::ptr::null_mut();
+    gp::GdipCreateFont(narrow, 11.5, gp::FontStyleRegular, gp::UnitPixel, &mut task_compact);
     let mut clock = std::ptr::null_mut();
-    gp::GdipCreateFont(mono, 11.0, gp::FontStyleBold, gp::UnitPixel, &mut clock);
+    gp::GdipCreateFont(mono, 12.5, gp::FontStyleBold, gp::UnitPixel, &mut clock);
+    let mut clock_compact = std::ptr::null_mut();
+    gp::GdipCreateFont(mono, 11.0, gp::FontStyleBold, gp::UnitPixel, &mut clock_compact);
 
     let mut fmt_task = std::ptr::null_mut();
     gp::GdipCreateStringFormat(gp::StringFormatFlagsLineLimit, 0, &mut fmt_task);
@@ -912,7 +957,7 @@ unsafe fn make_fonts() -> Fonts {
     gp::GdipCreateFromHDC(screen, &mut measure);
     gp::GdipSetTextRenderingHint(measure, gp::TextRenderingHintAntiAliasGridFit);
     // The measuring context keeps working after the DC is released; it only reads font metrics.
-    Fonts { task, clock, fmt_task, fmt_center, measure }
+    Fonts { task, task_compact, clock, clock_compact, fmt_task, fmt_center, measure }
 }
 
 fn main() {
@@ -995,6 +1040,7 @@ fn main() {
             shown: false,
             got_state: false,
             light: taskbar_is_light(),
+            compact: load_compact(),
             key: String::new(),
             hits: Vec::new(),
             fonts: make_fonts(),
