@@ -69,6 +69,50 @@ fn write_project(app: AppHandle, name: String, text: String) -> Result<(), Strin
     fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }
 
+
+/// Keeps the bar above the taskbar: whenever another window comes to the front
+/// (the taskbar, the Start menu, any app), put the bar back on top at once,
+/// without taking focus. The 3-second check in the bar stays as a backup.
+#[cfg(windows)]
+mod on_top {
+    use std::sync::atomic::{AtomicIsize, Ordering};
+    use windows_sys::Win32::Foundation::HWND;
+    use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, EVENT_SYSTEM_FOREGROUND, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS,
+    };
+
+    static BAR: AtomicIsize = AtomicIsize::new(0);
+
+    fn raise() {
+        let h = BAR.load(Ordering::Relaxed);
+        if h != 0 {
+            unsafe { SetWindowPos(h as HWND, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+        }
+    }
+
+    unsafe extern "system" fn on_foreground(_: HWINEVENTHOOK, _: u32, _: HWND, _: i32, _: i32, _: u32, _: u32) {
+        raise();
+    }
+
+    pub fn watch(bar: isize) {
+        BAR.store(bar, Ordering::Relaxed);
+        unsafe {
+            SetWinEventHook(
+                EVENT_SYSTEM_FOREGROUND,
+                EVENT_SYSTEM_FOREGROUND,
+                std::ptr::null_mut(),
+                Some(on_foreground),
+                0,
+                0,
+                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+            );
+        }
+        raise();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -81,6 +125,15 @@ pub fn run() {
                 let _ = bar.set_focus();
             }
         }))
+        .setup(|_app| {
+            #[cfg(windows)]
+            if let Some(bar) = _app.get_webview_window("bar") {
+                if let Ok(h) = bar.hwnd() {
+                    on_top::watch(h.0 as isize);
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![list_projects, read_project, write_project])
         .run(tauri::generate_context!())
         .expect("Maze Cat couldn't start");
