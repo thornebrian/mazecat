@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseProject, taskAtLine, tagMinutes, moveTask, firstTodo } from '../src/lists.ts';
-import { start, toggle, remaining, format } from '../src/timer.ts';
+import { start, toggle, remaining, format, nudge, elapsedMs } from '../src/timer.ts';
 
 const sample = 'GOVW:\n  WIP:\n  - Call Jennifer 11:00 (mid)\n  TODO:\n  - Fix "512©(3)" – find the swap (easy)\n  - Plan: help desks per project (mid)\n  DONE:\n  - Install Maze Cat (easy)\n';
 
@@ -72,4 +72,23 @@ test('"No, it\'s done" picks the top task under TODO', () => {
   assert.equal(next, 'Fix "512©(3)" – find the swap (easy)');
   t = moveTask(t, next, 'WIP');
   assert.deepEqual(parseProject('GOVW', t).items.WIP, [next]);
+});
+
+test('the wheel adds and takes away minutes, down to time\'s up', () => {
+  const t0 = 1_000_000;
+  const s = start('Task', 'P', 10, t0);
+  assert.equal(remaining(nudge(s, 2, t0), t0), 12 * 60_000);
+  assert.equal(nudge(s, 2, t0).totalMs, 12 * 60_000);
+  const up = nudge(s, -15, t0);
+  assert.equal(remaining(up, t0), 0);
+  assert.equal(remaining(nudge(up, 1, t0), t0), 60_000); // counting again
+  const paused = toggle(s, t0);
+  const p2 = nudge(paused, 3, t0 + 5000);
+  assert.equal(p2.endsAt, null);
+  assert.equal(p2.leftMs, 13 * 60_000);
+  // spent time never changes with the wheel (it's what gets logged)
+  const later = t0 + 4 * 60_000;
+  assert.equal(elapsedMs(nudge(s, 5, later), later), 4 * 60_000);
+  assert.equal(elapsedMs(nudge(s, -3, later), later), 4 * 60_000);
+  assert.deepEqual(nudge({ task: '', project: '', totalMs: 0, endsAt: null, leftMs: 0 }, 5), { task: '', project: '', totalMs: 0, endsAt: null, leftMs: 0 });
 });
